@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Migraine Log</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0f0f14;--surface:#1a1a24;--surface2:#22222f;--surface3:#2a2a3a;
+    --text:#e8e8f0;--text2:#9a9ab0;--text3:#6a6a80;
+    --accent:#7c5cfc;--accent2:#9b7dff;--accent-dim:#7c5cfc33;
+    --red:#ff4d6a;--orange:#ff8c42;--yellow:#ffd166;--green:#06d6a0;--blue:#4ea8de;
+    --radius:14px;--radius-sm:10px;
+    --shadow:0 2px 12px rgba(0,0,0,.3);
+    --transition:0.2s ease;
+  }
+  html{font-size:16px;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;padding-bottom:80px}
+  button{font:inherit;border:none;cursor:pointer;background:none;color:inherit}
+  input,textarea,select{font:inherit;border:none;background:var(--surface2);color:var(--text);border-radius:var(--radius-sm);padding:12px 16px;width:100%;outline:none}
+  input:focus,textarea:focus,select:focus{box-shadow:0 0 0 2px var(--accent)}
+  textarea{resize:vertical;min-height:60px}
+
+  /* ---- NAV ---- */
+  .nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--surface3);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+  .nav button{flex:1;padding:10px 0 8px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--text3);transition:color var(--transition)}
+  .nav button.active{color:var(--accent2)}
+  .nav button svg{width:22px;height:22px}
+
+  /* ---- VIEWS ---- */
+  .view{display:none;padding:16px;max-width:500px;margin:0 auto;animation:fadeIn .25s ease}
+  .view.active{display:block}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* ---- HEADER ---- */
+  .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-top:8px}
+  .header h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
+  .header .subtitle{font-size:13px;color:var(--text2)}
+
+  /* ---- LOG BUTTON (HOME) ---- */
+  .log-btn{width:100%;padding:22px;border-radius:var(--radius);background:linear-gradient(135deg,var(--accent),#9b5de5);color:#fff;font-size:20px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 24px rgba(124,92,252,.35);transition:transform .15s,box-shadow .15s;margin-bottom:24px}
+  .log-btn:active{transform:scale(.97);box-shadow:0 2px 12px rgba(124,92,252,.25)}
+  .log-btn svg{width:28px;height:28px}
+
+  /* ---- CARDS ---- */
+  .card{background:var(--surface);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .card-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+
+  /* ---- STAT ROW ---- */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+  .stat{background:var(--surface);border-radius:var(--radius);padding:16px 12px;text-align:center}
+  .stat .val{font-size:28px;font-weight:700;color:var(--accent2)}
+  .stat .label{font-size:11px;color:var(--text3);margin-top:4px}
+
+  /* ---- FORM ---- */
+  .form-group{margin-bottom:18px}
+  .form-label{font-size:13px;font-weight:600;color:var(--text2);margin-bottom:8px;display:block}
+  .form-row{display:flex;gap:10px}
+  .form-row>*{flex:1}
+
+  /* severity */
+  .severity-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .sev-btn{aspect-ratio:1;border-radius:var(--radius-sm);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;background:var(--surface2);transition:all var(--transition);min-height:48px}
+  .sev-btn.selected{color:#fff;transform:scale(1.08)}
+
+  /* triggers */
+  .trigger-grid{display:flex;flex-wrap:wrap;gap:8px}
+  .trigger-btn{padding:10px 16px;border-radius:20px;background:var(--surface2);font-size:14px;transition:all var(--transition);white-space:nowrap}
+  .trigger-btn.selected{background:var(--accent);color:#fff}
+
+  /* toggle */
+  .toggle-row{display:flex;align-items:center;gap:12px}
+  .toggle{width:52px;height:30px;border-radius:15px;background:var(--surface3);position:relative;transition:background var(--transition);flex-shrink:0;cursor:pointer}
+  .toggle.on{background:var(--accent)}
+  .toggle::after{content:'';position:absolute;width:24px;height:24px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform var(--transition)}
+  .toggle.on::after{transform:translateX(22px)}
+
+  /* duration presets */
+  .dur-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .dur-btn{padding:12px 8px;border-radius:var(--radius-sm);background:var(--surface2);font-size:13px;font-weight:600;text-align:center;transition:all var(--transition)}
+  .dur-btn.selected{background:var(--accent);color:#fff}
+
+  /* submit */
+  .submit-btn{width:100%;padding:18px;border-radius:var(--radius);background:var(--accent);color:#fff;font-size:17px;font-weight:700;margin-top:8px;transition:opacity var(--transition)}
+  .submit-btn:active{opacity:.85}
+
+  /* ---- CALENDAR HEATMAP ---- */
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .cal-header button{width:36px;height:36px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center}
+  .cal-header span{font-size:15px;font-weight:600}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+  .cal-day-label{font-size:10px;color:var(--text3);padding:4px 0}
+  .cal-cell{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text3);position:relative;background:var(--surface2)}
+  .cal-cell.empty{background:transparent}
+  .cal-cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
+  .cal-cell.has-entry{color:#fff;font-weight:600}
+
+  /* ---- TIMELINE ---- */
+  .timeline-item{background:var(--surface);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;transition:background var(--transition)}
+  .timeline-item:active{background:var(--surface2)}
+  .tl-sev{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0;color:#fff}
+  .tl-info{flex:1;min-width:0}
+  .tl-date{font-size:13px;color:var(--text2)}
+  .tl-triggers{font-size:12px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tl-expanded{display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--surface3);font-size:13px;color:var(--text2);line-height:1.5}
+  .timeline-item.expanded .tl-expanded{display:block}
+  .tl-actions{display:flex;gap:8px;margin-top:10px}
+  .tl-actions button{padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600}
+  .tl-edit{background:var(--surface3);color:var(--text)}
+  .tl-del{background:rgba(255,77,106,.15);color:var(--red)}
+
+  /* ---- CHART ---- */
+  .chart-wrap{height:140px;position:relative;margin-top:8px}
+  .chart-bars{display:flex;align-items:flex-end;gap:4px;height:120px;padding-bottom:20px;position:relative}
+  .chart-bar{flex:1;border-radius:4px 4px 0 0;background:var(--accent);min-width:0;transition:height .3s ease;position:relative}
+  .chart-bar:hover::after{content:attr(data-val);position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--text2);white-space:nowrap}
+  .chart-labels{display:flex;gap:4px;position:absolute;bottom:0;left:0;right:0}
+  .chart-labels span{flex:1;text-align:center;font-size:9px;color:var(--text3)}
+
+  /* ---- MED INVENTORY ---- */
+  .med-item{background:var(--surface);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
+  .med-icon{width:40px;height:40px;border-radius:10px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center}
+  .med-info{flex:1;min-width:0}
+  .med-name{font-weight:600;font-size:15px}
+  .med-detail{font-size:12px;color:var(--text3);margin-top:2px}
+  .med-qty{font-size:20px;font-weight:700;color:var(--accent2)}
+  .med-expired{color:var(--red)!important}
+  .med-actions{display:flex;gap:6px}
+  .med-actions button{width:32px;height:32px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:16px}
+
+  /* ---- MODAL ---- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:flex-end;justify-content:center;animation:fadeIn .2s}
+  .modal-overlay.active{display:flex}
+  .modal{background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-width:500px;max-height:85dvh;overflow-y:auto;animation:slideUp .3s ease}
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:none}}
+  .modal-handle{width:36px;height:4px;border-radius:2px;background:var(--surface3);margin:0 auto 18px}
+  .modal h2{font-size:18px;font-weight:700;margin-bottom:18px}
+
+  /* ---- TOAST ---- */
+  .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;padding:12px 24px;border-radius:12px;font-weight:600;font-size:14px;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none}
+  .toast.show{opacity:1}
+
+  /* scrollbar */
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:2px}
+
+  .empty-state{text-align:center;padding:40px 20px;color:var(--text3)}
+  .empty-state svg{width:48px;height:48px;margin-bottom:12px;opacity:.4}
+  .empty-state p{font-size:14px;line-height:1.6}
+
+  /* FAB for meds */
+  .fab{position:fixed;bottom:90px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;display:none;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(124,92,252,.4);z-index:90;font-size:28px}
+  .fab.visible{display:flex}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- HOME VIEW -->
+<div class="view active" id="view-home">
+  <div class="header">
+    <div>
+      <h1>Migraine Log</h1>
+      <div class="subtitle" id="home-subtitle">Track &amp; understand your migraines</div>
+    </div>
+  </div>
+  <button class="log-btn" onclick="showLogForm()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Log Migraine
+  </button>
+  <div class="stats" id="home-stats"></div>
+  <div class="card" id="home-recent">
+    <div class="card-title">Recent Entries</div>
+    <div id="home-timeline"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD VIEW -->
+<div class="view" id="view-dashboard">
+  <div class="header"><div><h1>Dashboard</h1></div></div>
+  <div class="card">
+    <div class="cal-header">
+      <button onclick="changeMonth(-1)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <span id="cal-month"></span>
+      <button onclick="changeMonth(1)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+  <div class="stats" id="dash-stats"></div>
+  <div class="card">
+    <div class="card-title">Top Triggers This Month</div>
+    <div id="top-triggers"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">Weekly Trend (12 weeks)</div>
+    <div class="chart-wrap">
+      <div class="chart-bars" id="chart-bars"></div>
+      <div class="chart-labels" id="chart-labels"></div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY VIEW -->
+<div class="view" id="view-history">
+  <div class="header"><div><h1>History</h1></div></div>
+  <div id="history-list"></div>
+</div>
+
+<!-- MEDS VIEW -->
+<div class="view" id="view-meds">
+  <div class="header"><div><h1>Medicine Cabinet</h1></div></div>
+  <div id="meds-list"></div>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="active" data-view="home" onclick="switchView('home')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    Home
+  </button>
+  <button data-view="dashboard" onclick="switchView('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </button>
+  <button data-view="history" onclick="switchView('history')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    History
+  </button>
+  <button data-view="meds" onclick="switchView('meds')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-6 9h6m-6 4h4"/></svg>
+    Meds
+  </button>
+</nav>
+
+<!-- FAB for Meds -->
+<button class="fab" id="meds-fab" onclick="showMedModal()">+</button>
+
+<!-- LOG MODAL -->
+<div class="modal-overlay" id="log-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="log-modal-title">Log Migraine</h2>
+    <form id="log-form" onsubmit="return saveEntry(event)">
+      <input type="hidden" id="edit-id" value="">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input type="date" id="log-date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Time</label>
+          <input type="time" id="log-time">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Severity</label>
+        <div class="severity-grid" id="sev-grid"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Duration</label>
+        <div class="dur-grid" id="dur-grid"></div>
+        <input type="text" id="log-dur-custom" placeholder="Or type: e.g. 45min, 3hrs" style="margin-top:8px">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Triggers</label>
+        <div class="trigger-grid" id="trigger-grid"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Weather</label>
+        <input type="text" id="log-weather" placeholder="e.g. humid, stormy, hot...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Medication</label>
+        <div class="toggle-row">
+          <div class="toggle" id="med-toggle" onclick="toggleMed()"></div>
+          <span id="med-toggle-label">None taken</span>
+        </div>
+        <div id="med-fields" style="display:none;margin-top:12px">
+          <div class="form-row">
+            <input type="text" id="log-med-name" placeholder="Medication name">
+            <input type="text" id="log-med-dose" placeholder="Dosage" style="max-width:120px">
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea id="log-notes" placeholder="Anything else to note..." rows="2"></textarea>
+      </div>
+      <button type="submit" class="submit-btn" id="log-submit-btn">Save Entry</button>
+    </form>
+  </div>
+</div>
+
+<!-- MED INVENTORY MODAL -->
+<div class="modal-overlay" id="med-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <h2 id="med-modal-title">Add Medication</h2>
+    <form id="med-form" onsubmit="return saveMed(event)">
+      <input type="hidden" id="med-edit-id" value="">
+      <div class="form-group">
+        <label class="form-label">Medication Name</label>
+        <input type="text" id="med-name" required placeholder="e.g. Ibuprofen 200mg">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Quantity</label>
+          <input type="number" id="med-qty" min="0" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expires</label>
+          <input type="date" id="med-exp">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" id="med-notes" placeholder="e.g. take with food">
+      </div>
+      <button type="submit" class="submit-btn">Save</button>
+    </form>
+  </div>
+</div>
+
+<script>
+// ---- DATA ----
+const TRIGGERS = ['Weather','Stress','Sleep','Food','Hormones','Screen Time','Dehydration','Alcohol','Caffeine'];
+const DURATIONS = ['30min','1hr','2hrs','4hrs','8hrs','12hrs','All day','Multi-day'];
+const SEV_COLORS = [
+  '#4ea8de','#4ea8de','#06d6a0','#06d6a0','#ffd166','#ffd166','#ff8c42','#ff8c42','#ff4d6a','#ff4d6a'
+];
+
+let entries = JSON.parse(localStorage.getItem('migraine-entries') || '[]');
+let meds = JSON.parse(localStorage.getItem('migraine-meds') || '[]');
+let calDate = new Date();
+let selectedSev = 5;
+let selectedDur = '';
+let selectedTriggers = new Set();
+let medTaken = false;
+
+// ---- INIT ----
+function init() {
+  buildSevGrid();
+  buildDurGrid();
+  buildTriggerGrid();
+  switchView('home');
+}
+
+// ---- NAVIGATION ----
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+  document.getElementById('meds-fab').classList.toggle('visible', name === 'meds');
+  if (name === 'home') renderHome();
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'history') renderHistory();
+  if (name === 'meds') renderMeds();
+}
+
+// ---- SEVERITY GRID ----
+function buildSevGrid() {
+  const g = document.getElementById('sev-grid');
+  g.innerHTML = '';
+  for (let i = 1; i <= 10; i++) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sev-btn' + (i === selectedSev ? ' selected' : '');
+    b.textContent = i;
+    b.style.background = i === selectedSev ? SEV_COLORS[i-1] : '';
+    b.onclick = () => {
+      selectedSev = i;
+      g.querySelectorAll('.sev-btn').forEach((btn, idx) => {
+        btn.classList.toggle('selected', idx + 1 === i);
+        btn.style.background = idx + 1 === i ? SEV_COLORS[idx] : '';
+      });
+    };
+    g.appendChild(b);
+  }
+}
+
+// ---- DURATION GRID ----
+function buildDurGrid() {
+  const g = document.getElementById('dur-grid');
+  g.innerHTML = '';
+  DURATIONS.forEach(d => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'dur-btn' + (d === selectedDur ? ' selected' : '');
+    b.textContent = d;
+    b.onclick = () => {
+      selectedDur = selectedDur === d ? '' : d;
+      document.getElementById('log-dur-custom').value = '';
+      g.querySelectorAll('.dur-btn').forEach(btn => btn.classList.toggle('selected', btn.textContent === selectedDur));
+    };
+    g.appendChild(b);
+  });
+}
+
+// ---- TRIGGER GRID ----
+function buildTriggerGrid() {
+  const g = document.getElementById('trigger-grid');
+  g.innerHTML = '';
+  TRIGGERS.forEach(t => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'trigger-btn' + (selectedTriggers.has(t) ? ' selected' : '');
+    b.textContent = t;
+    b.onclick = () => {
+      selectedTriggers.has(t) ? selectedTriggers.delete(t) : selectedTriggers.add(t);
+      b.classList.toggle('selected');
+    };
+    g.appendChild(b);
+  });
+}
+
+// ---- LOG FORM ----
+function showLogForm(editEntry) {
+  const now = new Date();
+  const modal = document.getElementById('log-modal');
+  document.getElementById('edit-id').value = editEntry ? editEntry.id : '';
+  document.getElementById('log-modal-title').textContent = editEntry ? 'Edit Entry' : 'Log Migraine';
+  document.getElementById('log-submit-btn').textContent = editEntry ? 'Update Entry' : 'Save Entry';
+  document.getElementById('log-date').value = editEntry ? editEntry.date : now.toISOString().split('T')[0];
+  document.getElementById('log-time').value = editEntry ? editEntry.time : now.toTimeString().slice(0,5);
+  selectedSev = editEntry ? editEntry.severity : 5;
+  selectedDur = editEntry ? editEntry.duration : '';
+  selectedTriggers = new Set(editEntry ? editEntry.triggers : []);
+  medTaken = editEntry ? editEntry.medTaken : false;
+  document.getElementById('med-toggle').classList.toggle('on', medTaken);
+  document.getElementById('med-toggle-label').textContent = medTaken ? 'Taken' : 'None taken';
+  document.getElementById('med-fields').style.display = medTaken ? 'block' : 'none';
+  document.getElementById('log-med-name').value = editEntry ? (editEntry.medName || '') : '';
+  document.getElementById('log-med-dose').value = editEntry ? (editEntry.medDose || '') : '';
+  document.getElementById('log-weather').value = editEntry ? (editEntry.weather || '') : '';
+  document.getElementById('log-notes').value = editEntry ? (editEntry.notes || '') : '';
+  document.getElementById('log-dur-custom').value = editEntry && !DURATIONS.includes(editEntry.duration) ? editEntry.duration : '';
+  buildSevGrid();
+  buildDurGrid();
+  buildTriggerGrid();
+  modal.classList.add('active');
+}
+
+function closeLogModal() { document.getElementById('log-modal').classList.remove('active'); }
+
+function toggleMed() {
+  medTaken = !medTaken;
+  document.getElementById('med-toggle').classList.toggle('on', medTaken);
+  document.getElementById('med-toggle-label').textContent = medTaken ? 'Taken' : 'None taken';
+  document.getElementById('med-fields').style.display = medTaken ? 'block' : 'none';
+}
+
+function saveEntry(e) {
+  e.preventDefault();
+  const editId = document.getElementById('edit-id').value;
+  const customDur = document.getElementById('log-dur-custom').value.trim();
+  const entry = {
+    id: editId || Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+    date: document.getElementById('log-date').value,
+    time: document.getElementById('log-time').value,
+    severity: selectedSev,
+    duration: customDur || selectedDur || '',
+    triggers: [...selectedTriggers],
+    weather: document.getElementById('log-weather').value.trim(),
+    medTaken,
+    medName: document.getElementById('log-med-name').value.trim(),
+    medDose: document.getElementById('log-med-dose').value.trim(),
+    notes: document.getElementById('log-notes').value.trim(),
+    createdAt: editId ? (entries.find(x => x.id === editId)?.createdAt || Date.now()) : Date.now()
+  };
+  if (editId) {
+    const idx = entries.findIndex(x => x.id === editId);
+    if (idx >= 0) entries[idx] = entry;
+  } else {
+    entries.unshift(entry);
+  }
+  persist();
+  closeLogModal();
+  toast(editId ? 'Entry updated' : 'Migraine logged');
+  switchView(document.querySelector('.nav button.active').dataset.view);
+}
+
+function deleteEntry(id) {
+  entries = entries.filter(x => x.id !== id);
+  persist();
+  switchView(document.querySelector('.nav button.active').dataset.view);
+  toast('Entry deleted');
+}
+
+// ---- HOME ----
+function renderHome() {
+  const now = new Date();
+  const month = now.getMonth(), year = now.getFullYear();
+  const thisMonth = entries.filter(e => { const d = new Date(e.date); return d.getMonth() === month && d.getFullYear() === year; });
+  const avgSev = thisMonth.length ? (thisMonth.reduce((s,e) => s + e.severity, 0) / thisMonth.length).toFixed(1) : '—';
+  const streak = getStreakDays();
+  document.getElementById('home-stats').innerHTML = `
+    <div class="stat"><div class="val">${thisMonth.length}</div><div class="label">This Month</div></div>
+    <div class="stat"><div class="val">${avgSev}</div><div class="label">Avg Severity</div></div>
+    <div class="stat"><div class="val">${streak}</div><div class="label">Days Clear</div></div>
+  `;
+  const recent = entries.slice(0, 5);
+  document.getElementById('home-timeline').innerHTML = recent.length
+    ? recent.map(e => timelineItem(e)).join('')
+    : '<div class="empty-state"><p>No entries yet.<br>Tap the button above to log your first migraine.</p></div>';
+  document.getElementById('home-subtitle').textContent = thisMonth.length === 0
+    ? 'No migraines logged this month'
+    : `${thisMonth.length} migraine${thisMonth.length > 1 ? 's' : ''} this month`;
+}
+
+function getStreakDays() {
+  if (!entries.length) return '—';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dates = new Set(entries.map(e => e.date));
+  let d = new Date(today), count = 0;
+  while (true) {
+    const ds = d.toISOString().split('T')[0];
+    if (dates.has(ds)) break;
+    count++;
+    d.setDate(d.getDate() - 1);
+    if (count > 365) break;
+  }
+  return count;
+}
+
+// ---- DASHBOARD ----
+function renderDashboard() {
+  renderCalendar();
+  renderDashStats();
+  renderTriggers();
+  renderChart();
+}
+
+function changeMonth(dir) {
+  calDate.setMonth(calDate.getMonth() + dir);
+  renderCalendar();
+  renderDashStats();
+  renderTriggers();
+}
+
+function renderCalendar() {
+  const y = calDate.getFullYear(), m = calDate.getMonth();
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const today = new Date();
+  const monthEntries = {};
+  entries.forEach(e => {
+    const d = new Date(e.date);
+    if (d.getMonth() === m && d.getFullYear() === y) {
+      const day = d.getDate();
+      if (!monthEntries[day]) monthEntries[day] = [];
+      monthEntries[day].push(e);
+    }
+  });
+  document.getElementById('cal-month').textContent = new Date(y, m).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const labels = ['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => `<div class="cal-day-label">${d}</div>`).join('');
+  let cells = '';
+  for (let i = 0; i < firstDay; i++) cells += '<div class="cal-cell empty"></div>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = d === today.getDate() && m === today.getMonth() && y === today.getFullYear();
+    const dayEntries = monthEntries[d];
+    let cls = 'cal-cell';
+    let style = '';
+    if (isToday) cls += ' today';
+    if (dayEntries) {
+      cls += ' has-entry';
+      const maxSev = Math.max(...dayEntries.map(e => e.severity));
+      const color = SEV_COLORS[maxSev - 1];
+      style = `background:${color};opacity:${0.5 + (maxSev / 10) * 0.5}`;
+    }
+    cells += `<div class="${cls}" style="${style}" title="${dayEntries ? dayEntries.length + ' entry(s)' : ''}">${d}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = labels + cells;
+}
+
+function renderDashStats() {
+  const y = calDate.getFullYear(), m = calDate.getMonth();
+  const me = entries.filter(e => { const d = new Date(e.date); return d.getMonth() === m && d.getFullYear() === y; });
+  const avg = me.length ? (me.reduce((s,e) => s + e.severity, 0) / me.length).toFixed(1) : '—';
+  const medCount = me.filter(e => e.medTaken).length;
+  document.getElementById('dash-stats').innerHTML = `
+    <div class="stat"><div class="val">${me.length}</div><div class="label">Migraines</div></div>
+    <div class="stat"><div class="val">${avg}</div><div class="label">Avg Severity</div></div>
+    <div class="stat"><div class="val">${medCount}</div><div class="label">Medicated</div></div>
+  `;
+}
+
+function renderTriggers() {
+  const y = calDate.getFullYear(), m = calDate.getMonth();
+  const me = entries.filter(e => { const d = new Date(e.date); return d.getMonth() === m && d.getFullYear() === y; });
+  const counts = {};
+  me.forEach(e => e.triggers.forEach(t => counts[t] = (counts[t] || 0) + 1));
+  const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+  const maxC = sorted.length ? sorted[0][1] : 1;
+  document.getElementById('top-triggers').innerHTML = sorted.length
+    ? sorted.map(([name, count]) => `
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <span style="width:90px;font-size:13px;color:var(--text2)">${name}</span>
+          <div style="flex:1;height:24px;background:var(--surface2);border-radius:6px;overflow:hidden">
+            <div style="height:100%;width:${(count/maxC)*100}%;background:var(--accent);border-radius:6px;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:600;color:#fff;min-width:24px">${count}</div>
+          </div>
+        </div>
+      `).join('')
+    : '<div style="color:var(--text3);font-size:13px">No triggers recorded this month</div>';
+}
+
+function renderChart() {
+  const weeks = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() - i * 7);
+    const weekStart = new Date(weekEnd);
+    weekStart.setDate(weekStart.getDate() - 6);
+    const count = entries.filter(e => {
+      const d = new Date(e.date);
+      return d >= weekStart && d <= weekEnd;
+    }).length;
+    weeks.push({ label: `W${12-i}`, count });
+  }
+  const max = Math.max(...weeks.map(w => w.count), 1);
+  document.getElementById('chart-bars').innerHTML = weeks.map(w =>
+    `<div class="chart-bar" data-val="${w.count}" style="height:${Math.max((w.count/max)*100, 4)}%"></div>`
+  ).join('');
+  document.getElementById('chart-labels').innerHTML = weeks.map(w => `<span>${w.label}</span>`).join('');
+}
+
+// ---- HISTORY ----
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty-state"><p>No entries yet.</p></div>';
+    return;
+  }
+  list.innerHTML = entries.map(e => timelineItem(e, true)).join('');
+}
+
+function timelineItem(e, showFull) {
+  const d = new Date(e.date + 'T' + (e.time || '00:00'));
+  const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const color = SEV_COLORS[e.severity - 1];
+  const triggers = e.triggers.length ? e.triggers.join(', ') : '';
+  const dur = e.duration ? ` · ${e.duration}` : '';
+  let expanded = '';
+  if (showFull) {
+    const parts = [];
+    if (e.weather) parts.push(`<strong>Weather:</strong> ${esc(e.weather)}`);
+    if (e.medTaken) parts.push(`<strong>Medication:</strong> ${esc(e.medName || 'Yes')}${e.medDose ? ' (' + esc(e.medDose) + ')' : ''}`);
+    if (e.notes) parts.push(`<strong>Notes:</strong> ${esc(e.notes)}`);
+    expanded = `<div class="tl-expanded">${parts.join('<br>') || 'No additional details'}
+      <div class="tl-actions">
+        <button class="tl-edit" onclick="event.stopPropagation();showLogForm(entries.find(x=>x.id==='${e.id}'))">Edit</button>
+        <button class="tl-del" onclick="event.stopPropagation();if(confirm('Delete this entry?'))deleteEntry('${e.id}')">Delete</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="timeline-item" onclick="this.classList.toggle('expanded')">
+    <div class="tl-sev" style="background:${color}">${e.severity}</div>
+    <div class="tl-info">
+      <div class="tl-date">${dateStr} at ${timeStr}${dur}</div>
+      ${triggers ? `<div class="tl-triggers">${esc(triggers)}</div>` : ''}
+      ${expanded}
+    </div>
+  </div>`;
+}
+
+// ---- MEDS INVENTORY ----
+function renderMeds() {
+  const list = document.getElementById('meds-list');
+  if (!meds.length) {
+    list.innerHTML = '<div class="empty-state"><p>No medications tracked yet.<br>Tap + to add one.</p></div>';
+    return;
+  }
+  const today = new Date().toISOString().split('T')[0];
+  list.innerHTML = meds.map(m => {
+    const expired = m.exp && m.exp < today;
+    return `<div class="med-item">
+      <div class="med-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-linecap="round"><path d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-6 9h6"/></svg></div>
+      <div class="med-info">
+        <div class="med-name">${esc(m.name)}</div>
+        <div class="med-detail">${m.exp ? (expired ? '<span class="med-expired">Expired ' + m.exp + '</span>' : 'Exp: ' + m.exp) : ''}${m.notes ? (m.exp ? ' · ' : '') + esc(m.notes) : ''}</div>
+      </div>
+      <div class="med-qty${expired ? ' med-expired' : ''}">${m.qty ?? '—'}</div>
+      <div class="med-actions">
+        <button onclick="editMed('${m.id}')" title="Edit">✎</button>
+        <button onclick="if(confirm('Remove?'))deleteMed('${m.id}')" title="Delete" style="color:var(--red)">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showMedModal(med) {
+  document.getElementById('med-edit-id').value = med ? med.id : '';
+  document.getElementById('med-modal-title').textContent = med ? 'Edit Medication' : 'Add Medication';
+  document.getElementById('med-name').value = med ? med.name : '';
+  document.getElementById('med-qty').value = med ? (med.qty ?? '') : '';
+  document.getElementById('med-exp').value = med ? (med.exp || '') : '';
+  document.getElementById('med-notes').value = med ? (med.notes || '') : '';
+  document.getElementById('med-modal').classList.add('active');
+}
+
+function closeMedModal() { document.getElementById('med-modal').classList.remove('active'); }
+
+function editMed(id) { showMedModal(meds.find(m => m.id === id)); }
+
+function saveMed(e) {
+  e.preventDefault();
+  const editId = document.getElementById('med-edit-id').value;
+  const med = {
+    id: editId || Date.now().toString(36),
+    name: document.getElementById('med-name').value.trim(),
+    qty: parseInt(document.getElementById('med-qty').value) || 0,
+    exp: document.getElementById('med-exp').value,
+    notes: document.getElementById('med-notes').value.trim()
+  };
+  if (editId) {
+    const idx = meds.findIndex(m => m.id === editId);
+    if (idx >= 0) meds[idx] = med;
+  } else {
+    meds.push(med);
+  }
+  localStorage.setItem('migraine-meds', JSON.stringify(meds));
+  closeMedModal();
+  renderMeds();
+  toast(editId ? 'Medication updated' : 'Medication added');
+}
+
+function deleteMed(id) {
+  meds = meds.filter(m => m.id !== id);
+  localStorage.setItem('migraine-meds', JSON.stringify(meds));
+  renderMeds();
+  toast('Medication removed');
+}
+
+// ---- UTILS ----
+function persist() { localStorage.setItem('migraine-entries', JSON.stringify(entries)); }
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+
+init();
+</script>
+</body>
+</html>
