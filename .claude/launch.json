@@ -3,7 +3,7 @@
   "configurations": [
     {
       "name": "migraine-log",
-      "runtimeExecutable": "node",
+      "runtimeExecutable": "/Users/chase.bruch/node/bin/node",
       "runtimeArgs": ["server.js"],
       "port": 3000
     }
