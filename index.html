@@ -52,6 +52,11 @@
   .card-title{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px}
 
   /* ---- STAT ROW ---- */
+  .kpi-header{margin-bottom:8px}
+  .kpi-range-tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .kpi-tab{background:var(--surface2);border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;color:var(--text3);cursor:pointer;transition:all var(--transition);text-transform:uppercase;letter-spacing:.3px}
+  .kpi-tab:hover{background:var(--surface);color:var(--text2)}
+  .kpi-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
   .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
   .stat{background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:var(--radius);padding:16px 10px;text-align:center;box-shadow:var(--shadow)}
   .stat .val{font-size:26px;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -103,11 +108,12 @@
   .cal-cell{aspect-ratio:1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text3);position:relative;background:var(--surface2);transition:transform var(--transition)}
   .cal-cell.empty{background:transparent}
   .cal-cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
-  .cal-cell.has-entry{color:#fff;font-weight:600}
-  .cal-cell.sev-low{background:rgba(78,168,222,.25);box-shadow:inset 0 0 0 1.5px rgba(78,168,222,.5)}
-  .cal-cell.sev-med{background:rgba(255,209,102,.3);box-shadow:inset 0 0 0 1.5px rgba(255,209,102,.6)}
-  .cal-cell.sev-high{background:rgba(255,140,66,.4);box-shadow:inset 0 0 0 1.5px rgba(255,140,66,.7)}
-  .cal-cell.sev-severe{background:rgba(255,77,106,.45);box-shadow:inset 0 0 0 2px rgba(255,77,106,.8),0 0 8px rgba(255,77,106,.3)}
+  .cal-cell.has-entry{font-weight:600}
+  .cal-cell .sev-badge{position:absolute;top:2px;right:2px;min-width:13px;height:12px;border-radius:2px;font-size:8px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 2px;line-height:1}
+  .cal-cell.sev-low .sev-badge{background:rgba(78,168,222,.75)}
+  .cal-cell.sev-med .sev-badge{background:rgba(255,189,66,.85)}
+  .cal-cell.sev-high .sev-badge{background:rgba(255,120,46,.9)}
+  .cal-cell.sev-severe .sev-badge{background:rgba(255,57,86,.95);box-shadow:0 0 6px rgba(255,57,86,.4)}
   .cal-cell .sev-dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%}
   .cal-cell .multi-dot{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);display:flex;gap:2px}
   .cal-cell .multi-dot span{width:4px;height:4px;border-radius:50%}
@@ -297,6 +303,15 @@
     </div>
     <div class="dash-card-wrap" data-card-id="stats">
       <div class="drag-handle"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg></div>
+      <div class="kpi-header">
+        <div class="kpi-range-tabs" id="kpi-range-tabs">
+          <button class="kpi-tab" onclick="setKpiRange('month')">This Month</button>
+          <button class="kpi-tab active" onclick="setKpiRange('90d')">90 Days</button>
+          <button class="kpi-tab" onclick="setKpiRange('6m')">6 Months</button>
+          <button class="kpi-tab" onclick="setKpiRange('year')">1 Year</button>
+          <button class="kpi-tab" onclick="setKpiRange('all')">All Time</button>
+        </div>
+      </div>
       <div class="stats" id="dash-stats"></div>
     </div>
     <div class="dash-card-wrap" data-card-id="triggers">
@@ -502,7 +517,7 @@
 // ---- DATA ----
 const TRIGGERS = ['Weather','Stress','Sleep','Food','Hormones','Screen Time','Dehydration','Alcohol','Caffeine'];
 const DURATIONS = ['30min','1hr','2hrs','4hrs','8hrs','12hrs','All day','Multi-day'];
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.6.0';
 const SEV_COLORS = [
   '#4ea8de','#4ea8de','#06d6a0','#06d6a0','#ffd166','#ffd166','#ff8c42','#ff8c42','#ff4d6a','#ff4d6a'
 ];
@@ -779,10 +794,12 @@ function renderCalendar() {
       else if (maxSev <= 6) cls += ' sev-med';
       else if (maxSev <= 8) cls += ' sev-high';
       else cls += ' sev-severe';
+      const badgeLabel = dayEntries.length > 1 ? dayEntries.length : maxSev;
+      dots = `<div class="sev-badge">${badgeLabel}</div>`;
       if (dayEntries.length > 1) {
-        dots = `<div class="multi-dot">${dayEntries.slice(0, 3).map(e => `<span style="background:${SEV_COLORS[e.severity-1]}"></span>`).join('')}</div>`;
+        dots += `<div class="multi-dot">${dayEntries.slice(0, 3).map(e => `<span style="background:${SEV_COLORS[e.severity-1]}"></span>`).join('')}</div>`;
       } else {
-        dots = `<div class="sev-dot" style="background:${SEV_COLORS[maxSev-1]}"></div>`;
+        dots += `<div class="sev-dot" style="background:${SEV_COLORS[maxSev-1]}"></div>`;
       }
     }
     const title = dayEntries ? dayEntries.length + ' entry(s), max severity ' + Math.max(...dayEntries.map(e => e.severity)) : '';
@@ -791,11 +808,32 @@ function renderCalendar() {
   document.getElementById('cal-grid').innerHTML = labels + cells;
 }
 
+let kpiRange = '90d';
+function setKpiRange(range) {
+  kpiRange = range;
+  document.querySelectorAll('.kpi-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.kpi-tab[onclick="setKpiRange('${range}')"]`).classList.add('active');
+  renderDashStats();
+}
+function getKpiEntries() {
+  const now = new Date();
+  if (kpiRange === 'month') {
+    const y = calDate.getFullYear(), m = calDate.getMonth();
+    return entries.filter(e => { const d = new Date(e.date); return d.getMonth() === m && d.getFullYear() === y; });
+  }
+  let cutoff;
+  if (kpiRange === '90d') cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 90);
+  else if (kpiRange === '6m') cutoff = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+  else if (kpiRange === 'year') cutoff = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  else return [...entries]; // all
+  return entries.filter(e => new Date(e.date) >= cutoff);
+}
 function renderDashStats() {
-  const y = calDate.getFullYear(), m = calDate.getMonth();
-  const me = entries.filter(e => { const d = new Date(e.date); return d.getMonth() === m && d.getFullYear() === y; });
+  const me = getKpiEntries();
   const avg = me.length ? (me.reduce((s,e) => s + e.severity, 0) / me.length).toFixed(1) : '—';
   const medCount = me.filter(e => e.medTaken).length;
+  const rangeLabels = { month: 'This Month', '90d': 'Last 90 Days', '6m': 'Last 6 Months', year: 'Last Year', all: 'All Time' };
+  const periodLabel = rangeLabels[kpiRange];
   document.getElementById('dash-stats').innerHTML = `
     <div class="stat"><div class="val">${me.length}</div><div class="label">Migraines</div></div>
     <div class="stat"><div class="val">${avg}</div><div class="label">Avg Severity</div></div>
