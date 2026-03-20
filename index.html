@@ -104,6 +104,40 @@
   .cal-cell.empty{background:transparent}
   .cal-cell.today{box-shadow:inset 0 0 0 2px var(--accent)}
   .cal-cell.has-entry{color:#fff;font-weight:600}
+  .cal-cell.sev-low{background:rgba(78,168,222,.25);box-shadow:inset 0 0 0 1.5px rgba(78,168,222,.5)}
+  .cal-cell.sev-med{background:rgba(255,209,102,.3);box-shadow:inset 0 0 0 1.5px rgba(255,209,102,.6)}
+  .cal-cell.sev-high{background:rgba(255,140,66,.4);box-shadow:inset 0 0 0 1.5px rgba(255,140,66,.7)}
+  .cal-cell.sev-severe{background:rgba(255,77,106,.45);box-shadow:inset 0 0 0 2px rgba(255,77,106,.8),0 0 8px rgba(255,77,106,.3)}
+  .cal-cell .sev-dot{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%}
+  .cal-cell .multi-dot{position:absolute;bottom:2px;left:50%;transform:translateX(-50%);display:flex;gap:2px}
+  .cal-cell .multi-dot span{width:4px;height:4px;border-radius:50%}
+  .cal-legend{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px;font-size:10px;color:var(--text3)}
+  .cal-legend-item{display:flex;align-items:center;gap:4px}
+  .cal-legend-swatch{width:10px;height:10px;border-radius:3px}
+
+  /* ---- LONG-TERM TREND CARDS ---- */
+  .trend-tabs{display:flex;gap:6px;margin-bottom:12px}
+  .trend-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;background:var(--surface2);color:var(--text3);transition:all var(--transition)}
+  .trend-tab.active{background:var(--accent);color:#fff}
+  .sparkline-row{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--surface2)}
+  .sparkline-row:last-child{border-bottom:none}
+  .sparkline-label{font-size:12px;color:var(--text2);width:50px;flex-shrink:0}
+  .sparkline-bar-track{flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+  .sparkline-bar-fill{height:100%;border-radius:4px;transition:width .4s ease}
+  .sparkline-val{font-size:12px;font-weight:700;color:var(--text);width:28px;text-align:right}
+  .severity-line-chart{width:100%;height:160px;position:relative}
+  .severity-line-chart canvas{width:100%!important;height:100%!important}
+  .year-heatmap{display:grid;grid-template-columns:repeat(53,1fr);gap:2px}
+  .year-heatmap-cell{aspect-ratio:1;border-radius:2px;background:var(--surface2)}
+  .year-heatmap-months{display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--text3)}
+  .trend-summary{display:flex;gap:10px;margin-bottom:14px}
+  .trend-stat{flex:1;text-align:center;padding:10px;background:var(--surface2);border-radius:var(--radius-sm)}
+  .trend-stat .val{font-size:20px;font-weight:800;background:linear-gradient(135deg,var(--accent2),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .trend-stat .label{font-size:10px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.5px}
+  .trend-delta{font-size:10px;font-weight:600;margin-left:4px}
+  .trend-delta.up{color:var(--red)}
+  .trend-delta.down{color:var(--green)}
+  .trend-delta.flat{color:var(--text3)}
 
   /* ---- TIMELINE ---- */
   .timeline-item{background:var(--surface);border:1px solid rgba(255,255,255,.04);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;cursor:pointer;transition:background var(--transition),border-color var(--transition)}
@@ -239,6 +273,12 @@
       <button onclick="changeMonth(1)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg></button>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
+    <div class="cal-legend">
+      <span class="cal-legend-item"><span class="cal-legend-swatch" style="background:rgba(78,168,222,.4)"></span>Mild</span>
+      <span class="cal-legend-item"><span class="cal-legend-swatch" style="background:rgba(255,209,102,.5)"></span>Moderate</span>
+      <span class="cal-legend-item"><span class="cal-legend-swatch" style="background:rgba(255,140,66,.6)"></span>Strong</span>
+      <span class="cal-legend-item"><span class="cal-legend-swatch" style="background:rgba(255,77,106,.8)"></span>Severe</span>
+    </div>
   </div>
   <div class="stats" id="dash-stats"></div>
   <div class="card">
@@ -246,11 +286,39 @@
     <div id="top-triggers"></div>
   </div>
   <div class="card">
-    <div class="card-title">Weekly Trend (12 weeks)</div>
+    <div class="card-title">Frequency Trend</div>
+    <div class="trend-tabs">
+      <button class="trend-tab active" onclick="setTrendRange('12w')">12 Weeks</button>
+      <button class="trend-tab" onclick="setTrendRange('6m')">6 Months</button>
+      <button class="trend-tab" onclick="setTrendRange('1y')">1 Year</button>
+    </div>
     <div class="chart-wrap">
       <div class="chart-bars" id="chart-bars"></div>
       <div class="chart-labels" id="chart-labels"></div>
     </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Severity Over Time</div>
+    <div class="trend-summary" id="sev-trend-summary"></div>
+    <div class="severity-line-chart">
+      <canvas id="sev-canvas"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Year at a Glance</div>
+    <div id="year-heatmap" class="year-heatmap"></div>
+    <div id="year-heatmap-months" class="year-heatmap-months"></div>
+    <div class="cal-legend" style="margin-top:8px">
+      <span class="cal-legend-item"><span class="cal-legend-swatch" style="background:var(--surface2)"></span>None</span>
+      <span class="cal-legend-item"><span class="cal-legend-swatch" style="background:rgba(78,168,222,.5)"></span>1-3</span>
+      <span class="cal-legend-item"><span class="cal-legend-swatch" style="background:rgba(255,209,102,.6)"></span>4-6</span>
+      <span class="cal-legend-item"><span class="cal-legend-swatch" style="background:rgba(255,140,66,.7)"></span>7-8</span>
+      <span class="cal-legend-item"><span class="cal-legend-swatch" style="background:rgba(255,77,106,.8)"></span>9-10</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Monthly Breakdown</div>
+    <div id="monthly-breakdown"></div>
   </div>
 </div>
 
@@ -358,7 +426,7 @@
     <p id="confirm-msg"></p>
     <div class="confirm-btns">
       <button class="confirm-cancel" onclick="closeConfirm(false)">Cancel</button>
-      <button class="confirm-ok" onclick="closeConfirm(true)">Delete</button>
+      <button class="confirm-ok" id="confirm-ok-btn" onclick="closeConfirm(true)">Delete</button>
     </div>
   </div>
 </div>
@@ -631,6 +699,9 @@ function renderDashboard() {
   renderDashStats();
   renderTriggers();
   renderChart();
+  renderSeverityTrend();
+  renderYearHeatmap();
+  renderMonthlyBreakdown();
 }
 
 function changeMonth(dir) {
@@ -662,15 +733,23 @@ function renderCalendar() {
     const isToday = d === today.getDate() && m === today.getMonth() && y === today.getFullYear();
     const dayEntries = monthEntries[d];
     let cls = 'cal-cell';
-    let style = '';
     if (isToday) cls += ' today';
+    let dots = '';
     if (dayEntries) {
       cls += ' has-entry';
       const maxSev = Math.max(...dayEntries.map(e => e.severity));
-      const color = SEV_COLORS[maxSev - 1];
-      style = `background:${color};opacity:${0.5 + (maxSev / 10) * 0.5}`;
+      if (maxSev <= 3) cls += ' sev-low';
+      else if (maxSev <= 6) cls += ' sev-med';
+      else if (maxSev <= 8) cls += ' sev-high';
+      else cls += ' sev-severe';
+      if (dayEntries.length > 1) {
+        dots = `<div class="multi-dot">${dayEntries.slice(0, 3).map(e => `<span style="background:${SEV_COLORS[e.severity-1]}"></span>`).join('')}</div>`;
+      } else {
+        dots = `<div class="sev-dot" style="background:${SEV_COLORS[maxSev-1]}"></div>`;
+      }
     }
-    cells += `<div class="${cls}" style="${style}" title="${dayEntries ? dayEntries.length + ' entry(s)' : ''}">${d}</div>`;
+    const title = dayEntries ? dayEntries.length + ' entry(s), max severity ' + Math.max(...dayEntries.map(e => e.severity)) : '';
+    cells += `<div class="${cls}" title="${title}">${d}${dots}</div>`;
   }
   document.getElementById('cal-grid').innerHTML = labels + cells;
 }
@@ -706,25 +785,218 @@ function renderTriggers() {
     : '<div class="empty-state"><p>No triggers recorded this month</p></div>';
 }
 
+let trendRange = '12w';
+function setTrendRange(range) {
+  trendRange = range;
+  document.querySelectorAll('.trend-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.trend-tab[onclick="setTrendRange('${range}')"]`).classList.add('active');
+  renderChart();
+}
+
 function renderChart() {
-  const weeks = [];
+  const buckets = [];
   const now = new Date();
-  for (let i = 11; i >= 0; i--) {
-    const weekEnd = new Date(now);
-    weekEnd.setDate(weekEnd.getDate() - i * 7);
-    const weekStart = new Date(weekEnd);
-    weekStart.setDate(weekStart.getDate() - 6);
-    const count = entries.filter(e => {
-      const d = new Date(e.date);
-      return d >= weekStart && d <= weekEnd;
-    }).length;
-    weeks.push({ label: `W${12-i}`, count });
+  if (trendRange === '12w') {
+    for (let i = 11; i >= 0; i--) {
+      const weekEnd = new Date(now); weekEnd.setDate(weekEnd.getDate() - i * 7);
+      const weekStart = new Date(weekEnd); weekStart.setDate(weekStart.getDate() - 6);
+      const count = entries.filter(e => { const d = new Date(e.date); return d >= weekStart && d <= weekEnd; }).length;
+      buckets.push({ label: `W${12-i}`, count });
+    }
+  } else if (trendRange === '6m') {
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      const count = entries.filter(e => { const ed = new Date(e.date); return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear(); }).length;
+      buckets.push({ label: d.toLocaleDateString('en-US', { month: 'short' }), count });
+    }
+  } else {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const count = entries.filter(e => { const ed = new Date(e.date); return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear(); }).length;
+      const lbl = d.toLocaleDateString('en-US', { month: 'narrow' });
+      buckets.push({ label: lbl, count });
+    }
   }
-  const max = Math.max(...weeks.map(w => w.count), 1);
-  document.getElementById('chart-bars').innerHTML = weeks.map(w =>
-    `<div class="chart-bar" data-val="${w.count}" style="height:${Math.max((w.count/max)*100, 4)}%"></div>`
-  ).join('');
-  document.getElementById('chart-labels').innerHTML = weeks.map(w => `<span>${w.label}</span>`).join('');
+  const max = Math.max(...buckets.map(w => w.count), 1);
+  document.getElementById('chart-bars').innerHTML = buckets.map(w => {
+    const pct = Math.max((w.count / max) * 100, 4);
+    const color = w.count === 0 ? 'var(--surface3)' : '';
+    return `<div class="chart-bar" data-val="${w.count}" style="height:${pct}%;${color ? 'background:'+color : ''}"></div>`;
+  }).join('');
+  document.getElementById('chart-labels').innerHTML = buckets.map(w => `<span>${w.label}</span>`).join('');
+}
+
+function renderSeverityTrend() {
+  const canvas = document.getElementById('sev-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Build monthly avg severity for last 12 months
+  const now = new Date();
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const me = entries.filter(e => { const ed = new Date(e.date); return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear(); });
+    const avg = me.length ? me.reduce((s, e) => s + e.severity, 0) / me.length : 0;
+    months.push({ label: d.toLocaleDateString('en-US', { month: 'short' }), avg, count: me.length });
+  }
+
+  // Summary stats
+  const recent3 = months.slice(-3).filter(m => m.count > 0);
+  const prev3 = months.slice(-6, -3).filter(m => m.count > 0);
+  const recentAvg = recent3.length ? (recent3.reduce((s, m) => s + m.avg, 0) / recent3.length).toFixed(1) : '—';
+  const prevAvg = prev3.length ? (prev3.reduce((s, m) => s + m.avg, 0) / prev3.length).toFixed(1) : '—';
+  const recentTotal = months.slice(-3).reduce((s, m) => s + m.count, 0);
+  const prevTotal = months.slice(-6, -3).reduce((s, m) => s + m.count, 0);
+  const freqDelta = prevTotal > 0 ? ((recentTotal - prevTotal) / prevTotal * 100).toFixed(0) : '—';
+  const freqClass = freqDelta === '—' ? 'flat' : (Number(freqDelta) > 0 ? 'up' : (Number(freqDelta) < 0 ? 'down' : 'flat'));
+
+  document.getElementById('sev-trend-summary').innerHTML = `
+    <div class="trend-stat"><div class="val">${recentAvg}</div><div class="label">Avg (3mo)</div></div>
+    <div class="trend-stat"><div class="val">${recentTotal}<span class="trend-delta ${freqClass}">${freqDelta !== '—' ? (Number(freqDelta) > 0 ? '+' : '') + freqDelta + '%' : ''}</span></div><div class="label">Last 3mo</div></div>
+    <div class="trend-stat"><div class="val">${entries.length}</div><div class="label">All Time</div></div>
+  `;
+
+  // Draw grid lines
+  const padL = 30, padR = 10, padT = 10, padB = 30;
+  const gW = W - padL - padR, gH = H - padT - padB;
+  ctx.strokeStyle = 'rgba(255,255,255,.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 10; i += 2) {
+    const y = padT + gH - (i / 10) * gH;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + gW, y); ctx.stroke();
+  }
+
+  // Draw labels
+  ctx.fillStyle = '#6a6a80';
+  ctx.font = '9px -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 10; i += 5) {
+    const y = padT + gH - (i / 10) * gH;
+    ctx.fillText(i, padL - 6, y + 3);
+  }
+  ctx.textAlign = 'center';
+  months.forEach((m, i) => {
+    const x = padL + (i / (months.length - 1)) * gW;
+    ctx.fillText(m.label, x, H - 6);
+  });
+
+  // Draw area fill
+  const points = months.map((m, i) => ({
+    x: padL + (i / (months.length - 1)) * gW,
+    y: padT + gH - (m.avg / 10) * gH
+  }));
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, padT + gH);
+  points.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(points[points.length - 1].x, padT + gH);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + gH);
+  grad.addColorStop(0, 'rgba(124,92,252,.25)');
+  grad.addColorStop(1, 'rgba(124,92,252,.02)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Draw line
+  ctx.beginPath();
+  points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = '#7c5cfc';
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Draw dots
+  points.forEach((p, i) => {
+    if (months[i].count === 0) return;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = SEV_COLORS[Math.round(months[i].avg) - 1] || '#7c5cfc';
+    ctx.fill();
+    ctx.strokeStyle = '#0c0c11';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+}
+
+function renderYearHeatmap() {
+  const now = new Date();
+  const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  // Build a map of date -> max severity
+  const dateMap = {};
+  entries.forEach(e => {
+    if (!dateMap[e.date] || e.severity > dateMap[e.date]) dateMap[e.date] = e.severity;
+  });
+
+  let cells = '';
+  const startDay = new Date(oneYearAgo);
+  // Align to start of week (Sunday)
+  startDay.setDate(startDay.getDate() - startDay.getDay());
+  const d = new Date(startDay);
+  const monthLabels = new Map();
+  while (d <= now) {
+    const key = d.toISOString().split('T')[0];
+    const sev = dateMap[key] || 0;
+    let bg = 'var(--surface2)';
+    if (sev >= 1 && sev <= 3) bg = 'rgba(78,168,222,.5)';
+    else if (sev >= 4 && sev <= 6) bg = 'rgba(255,209,102,.6)';
+    else if (sev >= 7 && sev <= 8) bg = 'rgba(255,140,66,.7)';
+    else if (sev >= 9) bg = 'rgba(255,77,106,.8)';
+    cells += `<div class="year-heatmap-cell" style="background:${bg}" title="${key}${sev ? ' (severity '+sev+')' : ''}"></div>`;
+    // Track month boundaries for labels
+    if (d.getDate() <= 7 && d.getDay() === 0) {
+      monthLabels.set(Math.floor((d - startDay) / (7 * 86400000)), d.toLocaleDateString('en-US', { month: 'short' }));
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  document.getElementById('year-heatmap').innerHTML = cells;
+
+  // Month labels
+  const totalWeeks = Math.ceil((now - startDay) / (7 * 86400000));
+  let labelsHtml = '';
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const labelDate = new Date(startDay);
+  let lastMonth = -1;
+  for (let w = 0; w < totalWeeks; w++) {
+    const wd = new Date(startDay);
+    wd.setDate(wd.getDate() + w * 7);
+    if (wd.getMonth() !== lastMonth) {
+      lastMonth = wd.getMonth();
+      labelsHtml += `<span>${months[lastMonth]}</span>`;
+    }
+  }
+  document.getElementById('year-heatmap-months').innerHTML = labelsHtml;
+}
+
+function renderMonthlyBreakdown() {
+  const now = new Date();
+  const rows = [];
+  let globalMax = 0;
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const me = entries.filter(e => { const ed = new Date(e.date); return ed.getMonth() === d.getMonth() && ed.getFullYear() === d.getFullYear(); });
+    const avg = me.length ? (me.reduce((s, e) => s + e.severity, 0) / me.length).toFixed(1) : 0;
+    if (me.length > globalMax) globalMax = me.length;
+    rows.push({ label: d.toLocaleDateString('en-US', { month: 'short' }), count: me.length, avg });
+  }
+  const max = Math.max(globalMax, 1);
+  document.getElementById('monthly-breakdown').innerHTML = rows.map(r => {
+    const pct = (r.count / max) * 100;
+    const color = r.avg == 0 ? 'var(--surface3)' : r.avg <= 3 ? 'rgba(78,168,222,.7)' : r.avg <= 6 ? 'rgba(255,209,102,.7)' : r.avg <= 8 ? 'rgba(255,140,66,.7)' : 'rgba(255,77,106,.8)';
+    return `<div class="sparkline-row">
+      <span class="sparkline-label">${r.label}</span>
+      <div class="sparkline-bar-track"><div class="sparkline-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+      <span class="sparkline-val">${r.count}</span>
+    </div>`;
+  }).join('');
 }
 
 // ---- HISTORY ----
@@ -839,8 +1111,12 @@ function deleteMed(id) {
 
 // ---- CONFIRM MODAL ----
 let confirmCallback = null;
-function showConfirm(msg, onConfirm) {
+function showConfirm(msg, onConfirm, btnLabel, btnStyle) {
   document.getElementById('confirm-msg').textContent = msg;
+  const btn = document.getElementById('confirm-ok-btn');
+  btn.textContent = btnLabel || 'Delete';
+  btn.style.background = btnStyle === 'accent' ? 'var(--accent)' : '';
+  btn.style.boxShadow = btnStyle === 'accent' ? '0 2px 8px rgba(124,92,252,.3)' : '';
   confirmCallback = onConfirm;
   document.getElementById('confirm-modal').classList.add('active');
 }
@@ -993,7 +1269,8 @@ function importSpreadsheet(e) {
           persist();
           switchView('home');
           toast(imported.length + ' entries imported');
-        }
+        },
+        'Import', 'accent'
       );
     } catch (err) {
       toast('Failed to parse file');
