@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0f0f14">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Migraine Log</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   :root{
@@ -221,14 +222,16 @@
     <div class="data-actions">
       <button onclick="exportData()">Export JSON</button>
       <button onclick="document.getElementById('import-file').click()">Import JSON</button>
+      <button onclick="document.getElementById('import-spreadsheet').click()">Import CSV/Excel</button>
     </div>
     <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+    <input type="file" id="import-spreadsheet" accept=".csv,.xlsx,.xls" style="display:none" onchange="importSpreadsheet(event)">
   </div>
 </div>
 
 <!-- DASHBOARD VIEW -->
 <div class="view" id="view-dashboard">
-  <div class="header"><div><h1>Dashboard</h1></div></div>
+  <div class="header"><div><h1>Dashboard</h1></div><span style="font-size:11px;color:var(--text3);opacity:.7;align-self:center">v1.0.0</span></div>
   <div class="card">
     <div class="cal-header">
       <button onclick="changeMonth(-1)"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg></button>
@@ -882,6 +885,122 @@ function importData(e) {
     }
   };
   reader.readAsText(file);
+  e.target.value = '';
+}
+
+function importSpreadsheet(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      if (typeof XLSX === 'undefined') { toast('Sheet library not loaded'); return; }
+      const data = new Uint8Array(ev.target.result);
+      const wb = XLSX.read(data, { type: 'array', cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      if (!rows.length) { toast('No data found in file'); return; }
+
+      // Normalize column headers: lowercase, trim, strip spaces/underscores
+      const normalize = s => String(s).toLowerCase().trim().replace(/[\s_-]+/g, '');
+      const colMap = (row, ...keys) => {
+        for (const k of Object.keys(row)) {
+          const nk = normalize(k);
+          for (const target of keys) {
+            if (nk === normalize(target) || nk.includes(normalize(target))) return row[k];
+          }
+        }
+        return '';
+      };
+
+      const imported = [];
+      for (const row of rows) {
+        // Parse date — handle Date objects, ISO strings, and common formats
+        let dateVal = colMap(row, 'date', 'datelogged', 'migrainedate', 'logdate');
+        if (dateVal instanceof Date) {
+          dateVal = dateVal.toISOString().split('T')[0];
+        } else {
+          dateVal = String(dateVal).trim();
+          // Try to parse MM/DD/YYYY or M/D/YYYY
+          const slashMatch = dateVal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+          if (slashMatch) {
+            dateVal = slashMatch[3] + '-' + slashMatch[1].padStart(2,'0') + '-' + slashMatch[2].padStart(2,'0');
+          }
+        }
+        if (!dateVal || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) continue; // skip rows without valid date
+
+        let timeVal = colMap(row, 'time', 'onset', 'starttime', 'timeofonset');
+        if (timeVal instanceof Date) {
+          timeVal = timeVal.toTimeString().slice(0, 5);
+        } else {
+          timeVal = String(timeVal).trim();
+          // Handle 12hr format
+          const ampm = timeVal.match(/^(\d{1,2}):?(\d{2})?\s*(am|pm)$/i);
+          if (ampm) {
+            let h = parseInt(ampm[1]);
+            const m = ampm[2] || '00';
+            if (ampm[3].toLowerCase() === 'pm' && h < 12) h += 12;
+            if (ampm[3].toLowerCase() === 'am' && h === 12) h = 0;
+            timeVal = String(h).padStart(2,'0') + ':' + m;
+          }
+        }
+        if (!timeVal || !/^\d{2}:\d{2}/.test(timeVal)) timeVal = '12:00';
+
+        let sev = colMap(row, 'severity', 'pain', 'intensity', 'level', 'painlevel');
+        sev = parseInt(sev) || 5;
+        if (sev < 1) sev = 1;
+        if (sev > 10) sev = 10;
+
+        let dur = String(colMap(row, 'duration', 'length', 'howlong')).trim() || '';
+
+        let trigStr = String(colMap(row, 'triggers', 'trigger', 'cause', 'causes')).trim();
+        const trigArr = trigStr ? trigStr.split(/[,;|]+/).map(t => t.trim()).filter(Boolean) : [];
+
+        const weather = String(colMap(row, 'weather', 'conditions')).trim();
+        const medTakenRaw = String(colMap(row, 'medtaken', 'medication', 'tookmed', 'medicine', 'med')).trim().toLowerCase();
+        const medTaken = ['yes','true','1','y'].includes(medTakenRaw) || !!medTakenRaw && medTakenRaw !== 'no' && medTakenRaw !== 'false' && medTakenRaw !== '0' && medTakenRaw !== 'n' && medTakenRaw !== '';
+        const medName = String(colMap(row, 'medname', 'medicinename', 'medicationname', 'drug')).trim();
+        const medDose = String(colMap(row, 'meddose', 'dose', 'dosage')).trim();
+        const notes = String(colMap(row, 'notes', 'note', 'comments', 'comment', 'description')).trim();
+
+        imported.push({
+          id: crypto.randomUUID(),
+          date: dateVal,
+          time: timeVal.slice(0, 5),
+          severity: sev,
+          duration: dur,
+          triggers: trigArr,
+          weather,
+          medTaken: medTaken && medName !== '',
+          medName,
+          medDose,
+          notes,
+          createdAt: Date.now()
+        });
+      }
+
+      if (!imported.length) {
+        toast('No valid rows found. Need at least a "date" column.');
+        return;
+      }
+
+      showConfirm(
+        'Import ' + imported.length + ' entries from spreadsheet? This will add to your existing data.',
+        () => {
+          entries = [...imported, ...entries];
+          // Sort by date descending
+          entries.sort((a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time));
+          persist();
+          switchView('home');
+          toast(imported.length + ' entries imported');
+        }
+      );
+    } catch (err) {
+      toast('Failed to parse file');
+      console.error('Spreadsheet import error:', err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
   e.target.value = '';
 }
 
